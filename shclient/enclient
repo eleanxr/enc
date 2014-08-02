@@ -9,10 +9,10 @@ FILENAME=$1
 EMAIL=$2
 
 PLAINTEXT_DIGEST_ALGORITHM="md5"
-PLAINTEXT_MD5=$(md5sum $FILENAME | awk '{print $1}')
+PLAINTEXT_DIGEST=$(md5sum $FILENAME | awk '{print $1}')
 
-echo "$FILENAME: $PLAINTEXT_MD5"
+echo "$FILENAME: $PLAINTEXT_DIGEST"
 
 gpg --output $FILENAME.gpg --encrypt --recipient $EMAIL $FILENAME
 
-curl -F "encrypted_file=@$FILENAME.gpg" -F "plaintext_digest_algorithm=$PLAINTEXT_DIGEST_ALGORITHM" -F "plaintext_digest=$PLAINTEXT_MD5" http://localhost:3000/files
+curl -F "encrypted_file=@$FILENAME.gpg" -F "plaintext_digest_algorithm=$PLAINTEXT_DIGEST_ALGORITHM" -F "plaintext_digest=$PLAINTEXT_DIGEST" http://localhost:3000/files
