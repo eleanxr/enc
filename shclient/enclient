@@ -16,3 +16,6 @@ echo "$FILENAME: $PLAINTEXT_DIGEST"
 gpg --output $FILENAME.gpg --encrypt --recipient $EMAIL $FILENAME
 
 curl -F "encrypted_file=@$FILENAME.gpg" -F "plaintext_digest_algorithm=$PLAINTEXT_DIGEST_ALGORITHM" -F "plaintext_digest=$PLAINTEXT_DIGEST" http://localhost:3000/files
+
+echo
+echo "Done."
