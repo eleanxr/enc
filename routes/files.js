@@ -3,13 +3,22 @@ var router = express.Router();
 
 var multiparty = require('multiparty');
 var util = require('util');
+var fs = require('fs');
+
+createDirectory = function (name) {
+  if (!fs.existsSync(name)) {
+    fs.mkdirSync(name);
+  }
+}
 
 router.get('/', function(req, res) {
   res.send('files will be here');
 });
 
 router.post('/', function (req, res) {
-  var form = new multiparty.Form();
+  var form = new multiparty.Form({
+    uploadDir: './uploads'
+  });
 
   form.parse(req, function (err, fields, files) {
     if (err) {
