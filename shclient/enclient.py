@@ -24,6 +24,8 @@ def digest_file(filename):
 def gpg_encrypt(filename, output_name, email):
     gpg = [
         'gpg',
+        '--batch',
+        '--yes',
         '--encrypt',
         '--output',
         output_name,
@@ -72,11 +74,22 @@ def main():
     
     # Create a temporary working directory
     working_dir = tempfile.mkdtemp('-enc')
+    count = 0
     try:
-        encrypt_and_upload(filename, working_dir, email)
+        if os.path.isfile(filename):
+            encrypt_and_upload(filename, working_dir, email)
+            count = count + 1
+        elif os.path.isdir(filename):
+            for root, dirs, files in os.walk(filename):
+                for filename in files:
+                    full_path = os.path.join(root, filename)
+                    encrypt_and_upload(full_path, working_dir, email)
+                    count = count + 1
     finally:
         if os.path.exists(working_dir):
             shutil.rmtree(working_dir)
+    
+    print '%d files saved.' % count
             
 
 if __name__ == '__main__':
