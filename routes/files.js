@@ -7,21 +7,25 @@ var fs = require('fs');
 var path = require('path');
 
 createDirectory = function (name) {
-  if (!fs.existsSync(name)) {
-    fs.mkdirSync(name);
-  }
 }
 
-writeFileAndAttributes = function (fsPath, name, attributes, done) {
-  var storageDirectory = './storage'
-  createDirectory(storageDirectory);
+FileStore = function (storageDirectory) {
+  if (!fs.existsSync(storageDirectory)) {
+    fs.mkdirSync(storageDirectory);
+  }
+  this.storageDirectory = storageDirectory;
+}
+
+FileStore.prototype.writeFileAndAttributes = function (fsPath, name, attributes, done) {
+  var storageDirectory = this.storageDirectory;
 
   console.log('Moving file ' + fsPath + ' to ' + name);
   fs.rename(fsPath, path.join(storageDirectory, name), function (err) {
     if (!err) {
+      attributes['encryptedContent'] = name;
       console.log('File moved, writing attributes...');
       var attributeContent = JSON.stringify(attributes);
-      fs.writeFile(path.join(storageDirectory, name + '.attributes'), attributeContent);
+      fs.writeFile(path.join(storageDirectory, name + '.attributes.public'), attributeContent);
     } else {
       console.error('Failed to move file: ' + err.message);
     }
@@ -40,7 +44,7 @@ firstOrNull = function (item) {
 }
 
 router.get('/', function(req, res) {
-  res.send('files will be here');
+  
 });
 
 router.post('/', function (req, res) {
@@ -60,7 +64,8 @@ router.post('/', function (req, res) {
     attributes['plaintextDigestAlgorithm'] = firstOrNull(fields.plaintext_digest_algorithm);
     encryptedContent = firstOrNull(files.encrypted_file);
 
-    writeFileAndAttributes(
+    var store = new FileStore('./storage');
+    store.writeFileAndAttributes(
       encryptedContent.path,
       encryptedContent.originalFilename,
       attributes,
