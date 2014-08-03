@@ -50,6 +50,18 @@ def post_data(encrypted_file, digest, digest_algorithm, encrypted_attrs, url):
     print 'Upload completed with response %s' % response.status_code
     print response.text
 
+def encrypt_and_upload(filename, working_dir, email):
+    plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
+    print "%s: %s" % (filename, plaintext_digest)
+
+    encrypted_file = gpg_encrypt(filename, os.path.join(working_dir, plaintext_digest + '.gpg'), email)
+    
+    private_attributes = os.path.join(working_dir, '%s.attributes.private' % plaintext_digest)
+    with open(private_attributes, 'w') as privateattrs:
+        privateattrs.write(json.dumps({'originalName': filename}))
+    encrypted_attrs = gpg_encrypt(private_attributes, os.path.join(working_dir, private_attributes + '.gpg'), email) 
+    post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
+
 def main():
     if len(sys.argv) < 3:
         print "Usage: %s <filename> <email>" % sys.argv[0]
@@ -61,16 +73,7 @@ def main():
     # Create a temporary working directory
     working_dir = tempfile.mkdtemp('-enc')
     try:
-        plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
-        print "%s: %s" % (filename, plaintext_digest)
-    
-        encrypted_file = gpg_encrypt(filename, os.path.join(working_dir, plaintext_digest + '.gpg'), email)
-        
-        private_attributes = os.path.join(working_dir, '%s.attributes.private' % plaintext_digest)
-        with open(private_attributes, 'w') as privateattrs:
-            privateattrs.write(json.dumps({'originalName': filename}))
-        encrypted_attrs = gpg_encrypt(private_attributes, os.path.join(working_dir, private_attributes + '.gpg'), email) 
-        post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
+        encrypt_and_upload(filename, working_dir, email)
     finally:
         if os.path.exists(working_dir):
             shutil.rmtree(working_dir)
