@@ -7,6 +7,7 @@ import requests
 from requests_toolbelt import MultipartEncoder
 
 import json
+import tempfile
 
 def digest_file(filename):
     digest = hashlib.md5()
@@ -42,6 +43,8 @@ def post_data(encrypted_file, digest, digest_algorithm, encrypted_attrs, url):
     
     encoder = MultipartEncoder(fields = data)
     
+    print 'Upload %s, %s' % (encrypted_file, encrypted_attrs)
+    
     response = requests.post(url, data=encoder, headers = {'content-type': encoder.content_type})
     print 'Upload completed with response %s' % response.status_code
     print response.text
@@ -54,15 +57,18 @@ def main():
     filename = sys.argv[1]
     email = sys.argv[2]
     
+    # Create a temporary working directory
+    working_dir = tempfile.mkdtemp('-enc')
+    
     plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
     print "%s: %s" % (filename, plaintext_digest)
 
-    encrypted_file = gpg_encrypt(filename, plaintext_digest + '.gpg', email)
+    encrypted_file = gpg_encrypt(filename, os.path.join(working_dir, plaintext_digest + '.gpg'), email)
     
-    private_attributes = '%s.attributes.private' % plaintext_digest
+    private_attributes = os.path.join(working_dir, '%s.attributes.private' % plaintext_digest)
     with open(private_attributes, 'w') as privateattrs:
         privateattrs.write(json.dumps({'originalName': filename}))
-    encrypted_attrs = gpg_encrypt(private_attributes, private_attributes + '.gpg', email) 
+    encrypted_attrs = gpg_encrypt(private_attributes, os.path.join(working_dir, private_attributes + '.gpg'), email) 
     post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
 
 if __name__ == '__main__':

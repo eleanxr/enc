@@ -16,19 +16,32 @@ FileStore = function (storageDirectory) {
 FileStore.prototype.writeFileAndAttributes = function (public_attributes, content, private_attributes, done) {
   var storageDirectory = this.storageDirectory;
 
-  fs.rename(content.path, path.join(storageDirectory, content.name), function (err) {
+  // Choose the names here, don't rely on the client. It might have sent more than
+  // it meant to.
+  var contentStorage = public_attributes.plaintextDigest + '.gpg';
+  var privateAttributeStorage = public_attributes.plaintextDigest + '.attributes.private.gpg';
+  var publicAttributeStorage = public_attributes.plaintextDigest + '.attributes.public';
+  
+  fs.rename(content.path, path.join(storageDirectory, contentStorage), function (err) {
     if (!err) {
-      public_attributes['encryptedContent'] = content.name;
-      fs.rename(private_attributes.path, path.join(storageDirectory, private_attributes.name), function (err) {
+      public_attributes['encryptedContent'] = contentStorage;
+      fs.rename(private_attributes.path, path.join(storageDirectory, privateAttributeStorage), function (err) {
         if (!err) {
-          public_attributes['privateAttributes'] = private_attributes.name;
+          public_attributes['privateAttributes'] = privateAttributeStorage;
           var attributeContent = JSON.stringify(public_attributes);
-          fs.writeFile(path.join(storageDirectory, content.name + '.attributes.public'), attributeContent);
+          fs.writeFile(
+            path.join(storageDirectory,  publicAttributeStorage),
+            attributeContent,
+            function (err) {
+              if (done) {
+                done(err);
+              }
+            });
         } else {
           console.error('Failed to write private attributes: ' + err.message);
-        }
-        if (done) {
-          done(err);
+          if (done) {
+            done(err);
+          }
         }
       });
     } else {
