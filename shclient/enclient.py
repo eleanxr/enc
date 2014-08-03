@@ -6,6 +6,8 @@ import subprocess
 import requests
 from requests_toolbelt import MultipartEncoder
 
+import json
+
 def digest_file(filename):
     digest = hashlib.md5()
     blocksize = 1024
@@ -17,25 +19,25 @@ def digest_file(filename):
             
     return ('md5', digest.hexdigest())
 
-def gpg_encrypt(filename, plaintext_digest, email):
-    encrypted_filename = '%s.gpg' % plaintext_digest
+def gpg_encrypt(filename, output_name, email):
     gpg = [
         'gpg',
         '--encrypt',
         '--output',
-        encrypted_filename,
+        output_name,
         '--recipient',
         email,
         filename
     ]
     subprocess.call(gpg)
-    return encrypted_filename
+    return output_name
 
-def post_data(encrypted_file, digest, digest_algorithm, url):
+def post_data(encrypted_file, digest, digest_algorithm, encrypted_attrs, url):
     data = {
         'plaintext_digest': digest,
         'plaintext_digest_algorithm': digest_algorithm,
-        'encrypted_file': (encrypted_file, open(encrypted_file, 'rb'))
+        'encrypted_file': (encrypted_file, open(encrypted_file, 'rb')),
+        'private_attributes': (encrypted_attrs, open(encrypted_attrs, 'rb'))
     }
     
     encoder = MultipartEncoder(fields = data)
@@ -55,8 +57,13 @@ def main():
     plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
     print "%s: %s" % (filename, plaintext_digest)
 
-    encrypted_file = gpg_encrypt(filename, plaintext_digest, email)    
-    post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, 'http://localhost:3000/files')
+    encrypted_file = gpg_encrypt(filename, plaintext_digest + '.gpg', email)
+    
+    private_attributes = '%s.attributes.private' % plaintext_digest
+    with open(private_attributes, 'w') as privateattrs:
+        privateattrs.write(json.dumps({'originalName': filename}))
+    encrypted_attrs = gpg_encrypt(private_attributes, private_attributes + '.gpg', email) 
+    post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
 
 if __name__ == '__main__':
     main()

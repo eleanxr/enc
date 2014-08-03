@@ -6,9 +6,6 @@ var util = require('util');
 var fs = require('fs');
 var path = require('path');
 
-createDirectory = function (name) {
-}
-
 FileStore = function (storageDirectory) {
   if (!fs.existsSync(storageDirectory)) {
     fs.mkdirSync(storageDirectory);
@@ -16,21 +13,29 @@ FileStore = function (storageDirectory) {
   this.storageDirectory = storageDirectory;
 }
 
-FileStore.prototype.writeFileAndAttributes = function (fsPath, name, attributes, done) {
+FileStore.prototype.writeFileAndAttributes = function (public_attributes, content, private_attributes, done) {
   var storageDirectory = this.storageDirectory;
 
-  console.log('Moving file ' + fsPath + ' to ' + name);
-  fs.rename(fsPath, path.join(storageDirectory, name), function (err) {
+  fs.rename(content.path, path.join(storageDirectory, content.name), function (err) {
     if (!err) {
-      attributes['encryptedContent'] = name;
-      console.log('File moved, writing attributes...');
-      var attributeContent = JSON.stringify(attributes);
-      fs.writeFile(path.join(storageDirectory, name + '.attributes.public'), attributeContent);
+      public_attributes['encryptedContent'] = content.name;
+      fs.rename(private_attributes.path, path.join(storageDirectory, private_attributes.name), function (err) {
+        if (!err) {
+          public_attributes['privateAttributes'] = private_attributes.name;
+          var attributeContent = JSON.stringify(public_attributes);
+          fs.writeFile(path.join(storageDirectory, content.name + '.attributes.public'), attributeContent);
+        } else {
+          console.error('Failed to write private attributes: ' + err.message);
+        }
+        if (done) {
+          done(err);
+        }
+      });
     } else {
       console.error('Failed to move file: ' + err.message);
-    }
-    if (done) {
-      done(err);
+      if (done) {
+        done(err);
+      }
     }
   });
 }
@@ -63,12 +68,13 @@ router.post('/', function (req, res) {
     attributes['plaintextDigest'] = firstOrNull(fields.plaintext_digest);
     attributes['plaintextDigestAlgorithm'] = firstOrNull(fields.plaintext_digest_algorithm);
     encryptedContent = firstOrNull(files.encrypted_file);
+    privateAttributes = firstOrNull(files.private_attributes);
 
     var store = new FileStore('./storage');
     store.writeFileAndAttributes(
-      encryptedContent.path,
-      encryptedContent.originalFilename,
       attributes,
+      {path: encryptedContent.path, name: encryptedContent.originalFilename},
+      {path: privateAttributes.path, name: privateAttributes.originalFilename},
       function (err) {
         if (err) {
           res.writeHead(500, {'content-type': 'text/plain'})
