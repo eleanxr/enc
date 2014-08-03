@@ -8,14 +8,19 @@ fi
 FILENAME=$1
 EMAIL=$2
 
-PLAINTEXT_DIGEST_ALGORITHM="md5"
-PLAINTEXT_DIGEST=$(md5sum $FILENAME | awk '{print $1}')
+function encrypt_and_upload () {
+    _filename=$1
+    PLAINTEXT_DIGEST_ALGORITHM="md5"
+    PLAINTEXT_DIGEST=$(md5sum $_filename | awk '{print $1}')
+    
+    echo "$_filename: $PLAINTEXT_DIGEST"
+    
+    gpg --output $_filename.gpg --encrypt --recipient $EMAIL $_filename
+    
+    curl -F "encrypted_file=@$_filename.gpg" -F "plaintext_digest_algorithm=$PLAINTEXT_DIGEST_ALGORITHM" -F "plaintext_digest=$PLAINTEXT_DIGEST" http://localhost:3000/files
+    echo
+}
 
-echo "$FILENAME: $PLAINTEXT_DIGEST"
+encrypt_and_upload $FILENAME
 
-gpg --output $FILENAME.gpg --encrypt --recipient $EMAIL $FILENAME
-
-curl -F "encrypted_file=@$FILENAME.gpg" -F "plaintext_digest_algorithm=$PLAINTEXT_DIGEST_ALGORITHM" -F "plaintext_digest=$PLAINTEXT_DIGEST" http://localhost:3000/files
-
-echo
 echo "Done."
