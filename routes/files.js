@@ -12,11 +12,11 @@ createDirectory = function (name) {
   }
 }
 
-writeFileAndAttributes = function (fsPath, name, attributes) {
+writeFileAndAttributes = function (fsPath, name, attributes, done) {
   var storageDirectory = './storage'
   createDirectory(storageDirectory);
 
-  console.log('Moving file ' + path + ' to ' + name);
+  console.log('Moving file ' + fsPath + ' to ' + name);
   fs.rename(fsPath, path.join(storageDirectory, name), function (err) {
     if (!err) {
       console.log('File moved, writing attributes...');
@@ -25,7 +25,18 @@ writeFileAndAttributes = function (fsPath, name, attributes) {
     } else {
       console.error('Failed to move file: ' + err.message);
     }
+    if (done) {
+      done(err);
+    }
   });
+}
+
+firstOrNull = function (item) {
+  if (item instanceof Array) {
+    return item.length > 0 ? item[0] : null;
+  } else {
+    return item;
+  }
 }
 
 router.get('/', function(req, res) {
@@ -44,14 +55,27 @@ router.post('/', function (req, res) {
       return;
     }
 
-    files.encrypted_file.forEach(function (file) {
-      writeFileAndAttributes(file.path, file.originalFilename, fields);
-    });
+    var attributes = {};
+    attributes['plaintextDigest'] = firstOrNull(fields.plaintext_digest);
+    attributes['plaintextDigestAlgorithm'] = firstOrNull(fields.plaintext_digest_algorithm);
+    encryptedContent = firstOrNull(files.encrypted_file);
 
-    res.writeHead(200, {'content-type': 'text/plain'});
-    res.write('received fields\n\n' + util.inspect(fields));
-    res.write('\n\n');
-    res.end('received files\n\n' + util.inspect(files));
+    writeFileAndAttributes(
+      encryptedContent.path,
+      encryptedContent.originalFilename,
+      attributes,
+      function (err) {
+        if (err) {
+          res.writeHead(500, {'content-type': 'text/plain'})
+          res.end(err.message);
+        } else {
+          res.writeHead(200, {'content-type': 'text/plain'});
+          res.write('received fields\n\n' + util.inspect(fields));
+          res.write('\n\n');
+          res.end('received files\n\n' + util.inspect(files));
+        }
+      }
+    );
   });
 });
 
