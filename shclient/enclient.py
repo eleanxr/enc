@@ -8,6 +8,7 @@ from requests_toolbelt import MultipartEncoder
 
 import json
 import tempfile
+import shutil
 
 def digest_file(filename):
     digest = hashlib.md5()
@@ -59,17 +60,21 @@ def main():
     
     # Create a temporary working directory
     working_dir = tempfile.mkdtemp('-enc')
+    try:
+        plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
+        print "%s: %s" % (filename, plaintext_digest)
     
-    plaintext_digest_algorithm, plaintext_digest = digest_file(filename)
-    print "%s: %s" % (filename, plaintext_digest)
-
-    encrypted_file = gpg_encrypt(filename, os.path.join(working_dir, plaintext_digest + '.gpg'), email)
-    
-    private_attributes = os.path.join(working_dir, '%s.attributes.private' % plaintext_digest)
-    with open(private_attributes, 'w') as privateattrs:
-        privateattrs.write(json.dumps({'originalName': filename}))
-    encrypted_attrs = gpg_encrypt(private_attributes, os.path.join(working_dir, private_attributes + '.gpg'), email) 
-    post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
+        encrypted_file = gpg_encrypt(filename, os.path.join(working_dir, plaintext_digest + '.gpg'), email)
+        
+        private_attributes = os.path.join(working_dir, '%s.attributes.private' % plaintext_digest)
+        with open(private_attributes, 'w') as privateattrs:
+            privateattrs.write(json.dumps({'originalName': filename}))
+        encrypted_attrs = gpg_encrypt(private_attributes, os.path.join(working_dir, private_attributes + '.gpg'), email) 
+        post_data(encrypted_file, plaintext_digest, plaintext_digest_algorithm, encrypted_attrs, 'http://localhost:3000/files')
+    finally:
+        if os.path.exists(working_dir):
+            shutil.rmtree(working_dir)
+            
 
 if __name__ == '__main__':
     main()
